@@ -15,6 +15,7 @@
         <option name="micronaut.processing.group" value="br.com.inter" />
         <option name="micronaut.processing.module" value="remittance-service" />
         <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.34/lombok-1.18.34.jar" />
           <entry name="$MAVEN_REPOSITORY$/io/micronaut/micronaut-inject-java/4.6.6/micronaut-inject-java-4.6.6.jar" />
           <entry name="$MAVEN_REPOSITORY$/org/slf4j/slf4j-api/2.0.16/slf4j-api-2.0.16.jar" />
           <entry name="$MAVEN_REPOSITORY$/io/micronaut/micronaut-core-processor/4.6.6/micronaut-core-processor-4.6.6.jar" />

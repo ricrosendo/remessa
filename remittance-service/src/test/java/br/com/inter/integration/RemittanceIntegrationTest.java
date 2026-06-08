@@ -7,6 +7,9 @@ import br.com.inter.dto.PtaxQuotationResponse;
 import br.com.inter.dto.RemittanceResponse;
 import br.com.inter.dto.UpdateUserBalanceRequest;
 import br.com.inter.dto.UserResponse;
+import br.com.inter.enums.RemittanceStatus;
+import br.com.inter.model.Remittance;
+import br.com.inter.repository.RemittanceRepository;
 import io.micronaut.context.annotation.Property;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Nullable;
@@ -51,10 +54,14 @@ class RemittanceIntegrationTest {
     @Client("/")
     HttpClient httpClient;
 
+    @Inject
+    RemittanceRepository remittanceRepository;
+
     @BeforeEach
     void setUp() {
         FakeUserController.reset();
         FakePtaxController.reset();
+        remittanceRepository.deleteAll();
     }
 
     @Test
@@ -78,6 +85,14 @@ class RemittanceIntegrationTest {
         assertEquals("'01-30-2025'", FakePtaxController.lastQuotationDate);
         assertEquals(100, FakePtaxController.lastTop);
         assertEquals("json", FakePtaxController.lastFormat);
+
+        List<Remittance> remittances = remittanceRepository.findAll().stream().toList();
+        assertEquals(1, remittances.size());
+        assertEquals(RemittanceStatus.COMPLETED, remittances.getFirst().getStatus());
+        assertEquals(SENDER_ID, remittances.getFirst().getSenderUserId());
+        assertEquals(RECEIVER_ID, remittances.getFirst().getReceiverUserId());
+        assertEquals(0, BigDecimal.valueOf(500).compareTo(remittances.getFirst().getBrlAmount()));
+        assertEquals(0, BigDecimal.valueOf(100).setScale(2).compareTo(remittances.getFirst().getUsdAmount()));
     }
 
     @Test

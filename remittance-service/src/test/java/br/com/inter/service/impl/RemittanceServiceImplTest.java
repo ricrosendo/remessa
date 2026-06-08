@@ -8,7 +8,10 @@ import br.com.inter.dto.PtaxQuotationResponse;
 import br.com.inter.dto.RemittanceResponse;
 import br.com.inter.dto.UpdateUserBalanceRequest;
 import br.com.inter.dto.UserResponse;
+import br.com.inter.enums.RemittanceStatus;
 import br.com.inter.exception.RemittanceException;
+import br.com.inter.model.Remittance;
+import br.com.inter.repository.RemittanceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -27,6 +30,7 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 class RemittanceServiceImplTest {
 
@@ -36,12 +40,17 @@ class RemittanceServiceImplTest {
     @Mock
     private PtaxClient ptaxClient;
 
+    @Mock
+    private RemittanceRepository remittanceRepository;
+
     private RemittanceServiceImpl remittanceService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        remittanceService = new RemittanceServiceImpl(userClient, ptaxClient);
+        when(remittanceRepository.save(any(Remittance.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(remittanceRepository.update(any(Remittance.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        remittanceService = new RemittanceServiceImpl(userClient, ptaxClient, remittanceRepository);
     }
 
     @Test
@@ -72,6 +81,11 @@ class RemittanceServiceImplTest {
         ArgumentCaptor<UpdateUserBalanceRequest> senderBalanceCaptor = ArgumentCaptor.forClass(UpdateUserBalanceRequest.class);
         verify(userClient).updateBalance(eq(senderId), senderBalanceCaptor.capture());
         assertEquals(BigDecimal.valueOf(500), senderBalanceCaptor.getValue().brlBalance());
+
+        ArgumentCaptor<Remittance> remittanceCaptor = ArgumentCaptor.forClass(Remittance.class);
+        verify(remittanceRepository).save(remittanceCaptor.capture());
+        verify(remittanceRepository, org.mockito.Mockito.atLeastOnce()).update(remittanceCaptor.getValue());
+        assertEquals(RemittanceStatus.COMPLETED, remittanceCaptor.getValue().getStatus());
     }
 
     @Test
@@ -117,6 +131,34 @@ class RemittanceServiceImplTest {
 
         assertEquals("Dollar quotation not found for date: 2025-01-30", exception.getMessage());
         verify(userClient, never()).updateBalance(any(), any());
+    }
+
+    @Test
+    void shouldCompensateSenderAndPersistCompensatedStatusWhenReceiverCreditFails() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(500), LocalDate.of(2025, 1, 30));
+        UserResponse sender = user(senderId, BigDecimal.valueOf(1000), BigDecimal.ZERO);
+        UserResponse receiver = user(receiverId, BigDecimal.ZERO, BigDecimal.TEN);
+
+        when(userClient.findById(senderId)).thenReturn(sender);
+        when(userClient.findById(receiverId)).thenReturn(receiver);
+        when(ptaxClient.findDollarQuotation("'01-30-2025'", 100, "json"))
+                .thenReturn(new PtaxQuotationResponse(List.of(new PtaxQuotation(BigDecimal.valueOf(5)))));
+        when(userClient.updateBalance(senderId, new UpdateUserBalanceRequest(BigDecimal.valueOf(500), BigDecimal.ZERO)))
+                .thenReturn(user(senderId, BigDecimal.valueOf(500), BigDecimal.ZERO));
+        doThrow(new RuntimeException("receiver unavailable"))
+                .when(userClient).updateBalance(receiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(110).setScale(2)));
+
+        RemittanceException exception = assertThrows(RemittanceException.class, () -> remittanceService.create(request));
+
+        assertEquals("Remittance transaction failed: receiver unavailable", exception.getMessage());
+        verify(userClient).updateBalance(senderId, new UpdateUserBalanceRequest(BigDecimal.valueOf(1000), BigDecimal.ZERO));
+
+        ArgumentCaptor<Remittance> remittanceCaptor = ArgumentCaptor.forClass(Remittance.class);
+        verify(remittanceRepository).save(remittanceCaptor.capture());
+        assertEquals(RemittanceStatus.COMPENSATED, remittanceCaptor.getValue().getStatus());
+        assertEquals("receiver unavailable", remittanceCaptor.getValue().getFailureReason());
     }
 
     @Test
