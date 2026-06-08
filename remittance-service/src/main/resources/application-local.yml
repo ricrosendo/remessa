@@ -1,0 +1,19 @@
+micronaut:
+  datasource:
+    default:
+      dialect: H2
+      driver-class-name: org.h2.Driver
+      password:
+      url: jdbc:h2:mem:test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        use_sql_comments: true
+        show_sql: true
+        auto: update
+
+server:
+  port: 8080
