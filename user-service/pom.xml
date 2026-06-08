@@ -83,6 +83,12 @@
     </dependency>
 
     <dependency>
+      <groupId>io.micronaut.openapi</groupId>
+      <artifactId>micronaut-openapi-annotations</artifactId>
+      <scope>compile</scope>
+    </dependency>
+
+    <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <scope>runtime</scope>
@@ -213,10 +219,16 @@
                 </exclusion>
               </exclusions>
             </path>
+            <path>
+              <groupId>io.micronaut.openapi</groupId>
+              <artifactId>micronaut-openapi</artifactId>
+              <version>${micronaut.openapi.version}</version>
+            </path>
           </annotationProcessorPaths>
           <compilerArgs>
             <arg>-Amicronaut.processing.group=br.com.inter</arg>
             <arg>-Amicronaut.processing.module=user-service</arg>
+            <arg>-Amicronaut.openapi.views.spec=swagger-ui.enabled=true</arg>
           </compilerArgs>
         </configuration>
       </plugin>

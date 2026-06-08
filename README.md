@@ -1,4 +1,4 @@
-﻿# Remessa
+# Remessa
 
 Projeto Java com Micronaut para gerenciamento de usuários e remessas internacionais.
 
@@ -74,6 +74,28 @@ Executar a partir da pasta `user-service`:
 
 ```powershell
 .\mvnw.bat mn:run
+```
+
+## Documentação Swagger
+
+Com o `user-service` em execução, a documentação da API pode ser acessada pelo navegador.
+
+Swagger UI:
+
+```text
+http://localhost:8081/api/swagger-ui
+```
+
+Arquivo OpenAPI gerado:
+
+```text
+http://localhost:8081/api/swagger/user-service-0.1.yml
+```
+
+Caso o navegador não abra a UI diretamente, acesse:
+
+```text
+http://localhost:8081/api/swagger-ui/index.html
 ```
 
 ## Como testar
