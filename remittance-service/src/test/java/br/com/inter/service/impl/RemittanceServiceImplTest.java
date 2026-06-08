@@ -22,8 +22,9 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -115,6 +116,70 @@ class RemittanceServiceImplTest {
         RemittanceException exception = assertThrows(RemittanceException.class, () -> remittanceService.create(request));
 
         assertEquals("Dollar quotation not found for date: 2025-01-30", exception.getMessage());
+        verify(userClient, never()).updateBalance(any(), any());
+    }
+
+    @Test
+    void shouldCreateRemittanceWhenSenderHasExactBalance() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(500), LocalDate.of(2025, 1, 30));
+
+        when(userClient.findById(senderId)).thenReturn(user(senderId, BigDecimal.valueOf(500), BigDecimal.ZERO));
+        when(userClient.findById(receiverId)).thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(ptaxClient.findDollarQuotation("'01-30-2025'", 100, "json"))
+                .thenReturn(new PtaxQuotationResponse(List.of(new PtaxQuotation(BigDecimal.valueOf(5)))));
+        when(userClient.updateBalance(senderId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.ZERO)))
+                .thenReturn(user(senderId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(userClient.updateBalance(receiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(100).setScale(2))))
+                .thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.valueOf(100).setScale(2)));
+
+        RemittanceResponse response = remittanceService.create(request);
+
+        assertEquals(BigDecimal.valueOf(100).setScale(2), response.usdAmount());
+        verify(userClient).updateBalance(senderId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.ZERO));
+    }
+
+    @Test
+    void shouldRoundConvertedUsdAmountUsingHalfUp() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(100), LocalDate.of(2025, 1, 30));
+
+        when(userClient.findById(senderId)).thenReturn(user(senderId, BigDecimal.valueOf(100), BigDecimal.ZERO));
+        when(userClient.findById(receiverId)).thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(ptaxClient.findDollarQuotation("'01-30-2025'", 100, "json"))
+                .thenReturn(new PtaxQuotationResponse(List.of(new PtaxQuotation(BigDecimal.valueOf(3)))));
+        when(userClient.updateBalance(senderId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.ZERO)))
+                .thenReturn(user(senderId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(userClient.updateBalance(receiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(33.33))))
+                .thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.valueOf(33.33)));
+
+        RemittanceResponse response = remittanceService.create(request);
+
+        assertEquals(BigDecimal.valueOf(33.33), response.usdAmount());
+        verify(userClient).updateBalance(receiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(33.33)));
+    }
+
+    @Test
+    void shouldUseFirstNonNullQuotation() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(100), LocalDate.of(2025, 1, 30));
+
+        when(userClient.findById(senderId)).thenReturn(user(senderId, BigDecimal.valueOf(100), BigDecimal.ZERO));
+        when(userClient.findById(receiverId)).thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(ptaxClient.findDollarQuotation("'01-30-2025'", 100, "json"))
+                .thenReturn(new PtaxQuotationResponse(List.of(new PtaxQuotation(null), new PtaxQuotation(BigDecimal.valueOf(4)))));
+        when(userClient.updateBalance(senderId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.ZERO)))
+                .thenReturn(user(senderId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(userClient.updateBalance(receiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(25).setScale(2))))
+                .thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.valueOf(25).setScale(2)));
+
+        RemittanceResponse response = remittanceService.create(request);
+
+        assertEquals(BigDecimal.valueOf(4), response.exchangeRate());
+        assertEquals(BigDecimal.valueOf(25).setScale(2), response.usdAmount());
     }
 
     private UserResponse user(UUID id, BigDecimal brlBalance, BigDecimal usdBalance) {
