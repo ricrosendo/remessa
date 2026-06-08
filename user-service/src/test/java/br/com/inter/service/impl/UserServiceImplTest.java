@@ -1,6 +1,7 @@
 package br.com.inter.service.impl;
 
 import br.com.inter.dto.CreateUserRequest;
+import br.com.inter.dto.UpdateUserBalanceRequest;
 import br.com.inter.dto.UpdateUserRequest;
 import br.com.inter.enums.UserType;
 import br.com.inter.exception.InvalidUserDocumentException;
@@ -307,6 +308,36 @@ class UserServiceImplTest {
         userService.delete(id);
 
         verify(userRepository).delete(user);
+    }
+
+    @Test
+    void shouldUpdateUserBalance() {
+        UUID id = UUID.randomUUID();
+        User user = userFromCreateRequest(createIndividualRequest());
+        user.setId(id);
+        UpdateUserBalanceRequest request = new UpdateUserBalanceRequest(BigDecimal.valueOf(250), BigDecimal.valueOf(50));
+
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.update(user)).thenReturn(user);
+
+        User updatedUser = userService.updateBalance(id, request);
+
+        assertEquals(request.brlBalance(), updatedUser.getBrlBalance());
+        assertEquals(request.usdBalance(), updatedUser.getUsdBalance());
+        verify(userRepository).update(user);
+    }
+
+    @Test
+    void shouldNotUpdateUserBalanceWhenUserIsNotFound() {
+        UUID id = UUID.randomUUID();
+        UpdateUserBalanceRequest request = new UpdateUserBalanceRequest(BigDecimal.valueOf(250), BigDecimal.valueOf(50));
+
+        when(userRepository.findById(id)).thenReturn(Optional.empty());
+
+        UserNotFoundException exception = assertThrows(UserNotFoundException.class, () -> userService.updateBalance(id, request));
+
+        assertEquals("User not found with id: " + id, exception.getMessage());
+        verify(userRepository, never()).update(any(User.class));
     }
 
     @Test
