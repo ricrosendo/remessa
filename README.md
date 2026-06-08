@@ -1,1 +1,120 @@
-## Micronaut 5.0.2 Documentation
+﻿# Remessa
+
+Projeto Java com Micronaut para gerenciamento de usuários e remessas internacionais.
+
+## Estrutura
+
+```text
+remessa/
+├── user-service/
+├── remittance-service/
+└── core/
+```
+
+## Tecnologias
+
+- Java 21
+- Micronaut
+- Maven Wrapper
+- Micronaut Data Hibernate JPA
+- H2 Database
+- JUnit 5
+- Mockito
+- Lombok
+
+## Serviços
+
+### user-service
+
+Serviço responsável pelo cadastro e manutenção de usuários.
+
+Recursos implementados:
+
+- Cadastro de usuário
+- Listagem de usuários
+- Busca por ID
+- Atualização de usuário
+- Remoção de usuário
+- Validação de CPF para pessoa física
+- Validação de CNPJ para pessoa jurídica
+- Validação de unicidade para e-mail, CPF e CNPJ
+
+O ID do usuário utiliza `UUID`.
+
+Tipos de usuário:
+
+- `INDIVIDUAL`
+- `COMPANY`
+
+Endpoints:
+
+```text
+POST   /api/users
+GET    /api/users
+GET    /api/users/{id}
+PUT    /api/users/{id}
+DELETE /api/users/{id}
+```
+
+Configuração local:
+
+- Porta: `8081`
+- Context path: `/api`
+- Banco: H2 em memória
+
+### remittance-service
+
+Serviço reservado para os recursos de remessas.
+
+## Como executar
+
+### user-service
+
+Executar a partir da pasta `user-service`:
+
+```powershell
+.\mvnw.bat mn:run
+```
+
+## Como testar
+
+### user-service
+
+Executar a partir da pasta `user-service`:
+
+```powershell
+.\mvnw.bat test
+```
+
+## Testes
+
+O `user-service` possui testes com JUnit 5 e Mockito cobrindo as principais regras de negócio do `UserServiceImpl`, incluindo:
+
+- Criação de usuários pessoa física e empresa
+- Validação de documentos obrigatórios
+- Validação de e-mail, CPF e CNPJ duplicados
+- Busca de usuários
+- Atualização de usuários
+- Remoção de usuários
+- Tratamento de usuário não encontrado
+
+## Exemplo de criação de usuário
+
+```json
+{
+  "fullName": "John Doe",
+  "email": "john.doe@email.com",
+  "password": "password",
+  "type": "INDIVIDUAL",
+  "cpf": "12345678901",
+  "cnpj": null,
+  "brlBalance": 1000.00,
+  "usdBalance": 100.00
+}
+```
+
+## Observações
+
+- Use o Maven Wrapper de cada serviço.
+- Não é necessário ter `mvn` instalado globalmente.
+- O banco H2 é configurado em memória para ambiente local/testes.
