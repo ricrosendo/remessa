@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remittance-service
+  labels:
+    app: remittance-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remittance-service
+  template:
+    metadata:
+      labels:
+        app: remittance-service
+    spec:
+      containers:
+        - name: remittance-service
+          image: remessa/remittance-service:0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          env:
+            - name: MICRONAUT_ENVIRONMENTS
+              value: kubernetes
+            - name: CLIENTS_USER_SERVICE_URL
+              value: http://user-service:8081/api
+            - name: CLIENTS_PTAX_URL
+              value: https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata
+          readinessProbe:
+            tcpSocket:
+              port: 8082
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8082
+            initialDelaySeconds: 40
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: remittance-service
+  labels:
+    app: remittance-service
+spec:
+  type: ClusterIP
+  selector:
+    app: remittance-service
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082

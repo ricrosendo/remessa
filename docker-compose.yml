@@ -1,0 +1,24 @@
+services:
+  user-service:
+    build:
+      context: ./user-service
+    image: remessa/user-service:0.1
+    container_name: remessa-user-service
+    ports:
+      - "8081:8081"
+    environment:
+      MICRONAUT_ENVIRONMENTS: docker
+
+  remittance-service:
+    build:
+      context: ./remittance-service
+    image: remessa/remittance-service:0.1
+    container_name: remessa-remittance-service
+    ports:
+      - "8082:8082"
+    environment:
+      MICRONAUT_ENVIRONMENTS: docker
+      CLIENTS_USER_SERVICE_URL: http://user-service:8081/api
+      CLIENTS_PTAX_URL: https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata
+    depends_on:
+      - user-service
