@@ -325,14 +325,93 @@ class RemittanceServiceImplTest {
         verify(ptaxClient, never()).findDollarQuotation(any(), org.mockito.ArgumentMatchers.anyInt(), any());
         verify(userClient, never()).updateBalance(any(), any());
     }
+
+    @Test
+    void shouldCreateRemittanceFromIndividualToCompany() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(500), LocalDate.of(2025, 1, 30));
+
+        when(userClient.findById(senderId)).thenReturn(user(senderId, BigDecimal.valueOf(1000), BigDecimal.ZERO));
+        when(userClient.findById(receiverId)).thenReturn(company(receiverId, BigDecimal.ZERO, BigDecimal.TEN));
+        when(ptaxClient.findDollarQuotation("'01-30-2025'", 100, "json"))
+                .thenReturn(new PtaxQuotationResponse(List.of(new PtaxQuotation(BigDecimal.valueOf(5)))));
+        when(userClient.updateBalance(senderId, new UpdateUserBalanceRequest(BigDecimal.valueOf(500), BigDecimal.ZERO)))
+                .thenReturn(user(senderId, BigDecimal.valueOf(500), BigDecimal.ZERO));
+        when(userClient.updateBalance(receiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(110).setScale(2))))
+                .thenReturn(company(receiverId, BigDecimal.ZERO, BigDecimal.valueOf(110).setScale(2)));
+
+        RemittanceResponse response = remittanceService.create(request);
+
+        assertEquals(senderId, response.senderUserId());
+        assertEquals(receiverId, response.receiverUserId());
+        assertEquals(BigDecimal.valueOf(100).setScale(2), response.usdAmount());
+    }
+
+    @Test
+    void shouldCreateRemittanceFromCompanyToIndividual() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(500), LocalDate.of(2025, 1, 30));
+
+        when(userClient.findById(senderId)).thenReturn(company(senderId, BigDecimal.valueOf(1000), BigDecimal.ZERO));
+        when(userClient.findById(receiverId)).thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.TEN));
+        when(ptaxClient.findDollarQuotation("'01-30-2025'", 100, "json"))
+                .thenReturn(new PtaxQuotationResponse(List.of(new PtaxQuotation(BigDecimal.valueOf(5)))));
+        when(userClient.updateBalance(senderId, new UpdateUserBalanceRequest(BigDecimal.valueOf(500), BigDecimal.ZERO)))
+                .thenReturn(company(senderId, BigDecimal.valueOf(500), BigDecimal.ZERO));
+        when(userClient.updateBalance(receiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(110).setScale(2))))
+                .thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.valueOf(110).setScale(2)));
+
+        RemittanceResponse response = remittanceService.create(request);
+
+        assertEquals(senderId, response.senderUserId());
+        assertEquals(receiverId, response.receiverUserId());
+        assertEquals(BigDecimal.valueOf(100).setScale(2), response.usdAmount());
+    }
+
+    @Test
+    void shouldUseCachedExchangeRateWhenQuotationIsNotFoundAfterPreviousSuccessfulQuotation() {
+        UUID firstSenderId = UUID.randomUUID();
+        UUID firstReceiverId = UUID.randomUUID();
+        UUID secondSenderId = UUID.randomUUID();
+        UUID secondReceiverId = UUID.randomUUID();
+        CreateRemittanceRequest firstRequest = new CreateRemittanceRequest(firstSenderId, firstReceiverId, BigDecimal.valueOf(500), LocalDate.of(2025, 1, 31));
+        CreateRemittanceRequest secondRequest = new CreateRemittanceRequest(secondSenderId, secondReceiverId, BigDecimal.valueOf(500), LocalDate.of(2025, 2, 1));
+
+        when(userClient.findById(firstSenderId)).thenReturn(user(firstSenderId, BigDecimal.valueOf(1000), BigDecimal.ZERO));
+        when(userClient.findById(firstReceiverId)).thenReturn(user(firstReceiverId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(userClient.findById(secondSenderId)).thenReturn(user(secondSenderId, BigDecimal.valueOf(1000), BigDecimal.ZERO));
+        when(userClient.findById(secondReceiverId)).thenReturn(user(secondReceiverId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(ptaxClient.findDollarQuotation("'01-31-2025'", 100, "json"))
+                .thenReturn(new PtaxQuotationResponse(List.of(new PtaxQuotation(BigDecimal.valueOf(5)))));
+        when(ptaxClient.findDollarQuotation("'02-01-2025'", 100, "json"))
+                .thenReturn(new PtaxQuotationResponse(List.of()));
+        when(userClient.updateBalance(firstSenderId, new UpdateUserBalanceRequest(BigDecimal.valueOf(500), BigDecimal.ZERO)))
+                .thenReturn(user(firstSenderId, BigDecimal.valueOf(500), BigDecimal.ZERO));
+        when(userClient.updateBalance(firstReceiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(100).setScale(2))))
+                .thenReturn(user(firstReceiverId, BigDecimal.ZERO, BigDecimal.valueOf(100).setScale(2)));
+        when(userClient.updateBalance(secondSenderId, new UpdateUserBalanceRequest(BigDecimal.valueOf(500), BigDecimal.ZERO)))
+                .thenReturn(user(secondSenderId, BigDecimal.valueOf(500), BigDecimal.ZERO));
+        when(userClient.updateBalance(secondReceiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(100).setScale(2))))
+                .thenReturn(user(secondReceiverId, BigDecimal.ZERO, BigDecimal.valueOf(100).setScale(2)));
+
+        RemittanceResponse firstResponse = remittanceService.create(firstRequest);
+        RemittanceResponse secondResponse = remittanceService.create(secondRequest);
+
+        assertEquals(BigDecimal.valueOf(5), firstResponse.exchangeRate());
+        assertEquals(BigDecimal.valueOf(5), secondResponse.exchangeRate());
+        assertEquals(BigDecimal.valueOf(100).setScale(2), secondResponse.usdAmount());
+    }
     private UserResponse user(UUID id, BigDecimal brlBalance, BigDecimal usdBalance) {
         return new UserResponse(id, "User", "user@email.com", "INDIVIDUAL", "12345678901", null, brlBalance, usdBalance);
     }
 
-
     private UserResponse userWithType(UUID id, String type, BigDecimal brlBalance, BigDecimal usdBalance) {
         return new UserResponse(id, "User", "user@email.com", type, "12345678901", null, brlBalance, usdBalance);
-    }    private UserResponse company(UUID id, BigDecimal brlBalance, BigDecimal usdBalance) {
+    }
+
+    private UserResponse company(UUID id, BigDecimal brlBalance, BigDecimal usdBalance) {
         return new UserResponse(id, "Company", "company@email.com", "COMPANY", null, "12345678000199", brlBalance, usdBalance);
     }
 }

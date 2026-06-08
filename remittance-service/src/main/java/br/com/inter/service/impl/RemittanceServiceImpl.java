@@ -20,6 +20,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Singleton
 public class RemittanceServiceImpl implements RemittanceService {
@@ -31,6 +32,7 @@ public class RemittanceServiceImpl implements RemittanceService {
     private final UserClient userClient;
     private final PtaxClient ptaxClient;
     private final RemittanceRepository remittanceRepository;
+    private final AtomicReference<BigDecimal> lastExchangeRate = new AtomicReference<>();
 
     public RemittanceServiceImpl(UserClient userClient, PtaxClient ptaxClient, RemittanceRepository remittanceRepository) {
         this.userClient = userClient;
@@ -152,6 +154,20 @@ public class RemittanceServiceImpl implements RemittanceService {
                 .map(PtaxQuotation::cotacaoCompra)
                 .filter(Objects::nonNull)
                 .findFirst()
-                .orElseThrow(() -> new RemittanceException("Dollar quotation not found for date: " + request.quotationDate()));
+                .map(exchangeRate -> {
+                    lastExchangeRate.set(exchangeRate);
+                    return exchangeRate;
+                })
+                .orElseGet(() -> cachedExchangeRate(request));
+    }
+
+    private BigDecimal cachedExchangeRate(CreateRemittanceRequest request) {
+        BigDecimal exchangeRate = lastExchangeRate.get();
+
+        if (exchangeRate == null) {
+            throw new RemittanceException("Dollar quotation not found for date: " + request.quotationDate());
+        }
+
+        return exchangeRate;
     }
 }
