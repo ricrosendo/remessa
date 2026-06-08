@@ -16,11 +16,15 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Controller("/remittances")
 @ExecuteOn(TaskExecutors.BLOCKING)
 @Tag(name = "Remittances", description = "Resources for international remittance creation")
 public class RemittanceController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RemittanceController.class);
 
     private final RemittanceService remittanceService;
 
@@ -41,6 +45,9 @@ public class RemittanceController {
     @ApiResponse(responseCode = "400", description = "Invalid request or business rule violation", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "500", description = "Internal error while processing the remittance", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public HttpResponse<RemittanceResponse> create(@Body @Valid CreateRemittanceRequest request) {
-        return HttpResponse.created(remittanceService.create(request));
+        LOGGER.info("Received request to create remittance. senderUserId={}, receiverUserId={}, quotationDate={}", request.senderUserId(), request.receiverUserId(), request.quotationDate());
+        RemittanceResponse response = remittanceService.create(request);
+        LOGGER.info("Remittance request processed successfully. senderUserId={}, receiverUserId={}, quotationDate={}", response.senderUserId(), response.receiverUserId(), response.quotationDate());
+        return HttpResponse.created(response);
     }
 }
