@@ -59,18 +59,6 @@
     </dependency>
 
     <dependency>
-      <groupId>io.micronaut.data</groupId>
-      <artifactId>micronaut-data-spring</artifactId>
-      <scope>compile</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>io.micronaut.data</groupId>
-      <artifactId>micronaut-data-spring-jpa</artifactId>
-      <scope>compile</scope>
-    </dependency>
-
-    <dependency>
       <groupId>io.micronaut.serde</groupId>
       <artifactId>micronaut-serde-jackson</artifactId>
       <scope>compile</scope>
@@ -95,18 +83,6 @@
     </dependency>
 
     <dependency>
-      <groupId>org.springframework</groupId>
-      <artifactId>spring-orm</artifactId>
-      <scope>compile</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter</artifactId>
-      <scope>compile</scope>
-    </dependency>
-
-    <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <scope>runtime</scope>
@@ -122,6 +98,12 @@
       <groupId>org.yaml</groupId>
       <artifactId>snakeyaml</artifactId>
       <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
@@ -162,18 +144,6 @@
         <artifactId>micronaut-maven-plugin</artifactId>
         <configuration>
           <configFile>aot-${packaging}.properties</configFile>
-<configurationValidation>
-    <enabled>false</enabled>
-
-    <suppressions>
-        <suppression>datasources.default.db-type</suppression>
-    </suppressions>
-    <failOnNotPresent>true</failOnNotPresent>
-    <validateDependencyInjection>false</validateDependencyInjection>
-    <cacheEnabled>true</cacheEnabled>
-
-</configurationValidation>
-
         </configuration>
       </plugin>
 
@@ -185,10 +155,16 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
+          <release>${release.version}</release>
           <!-- Uncomment to enable incremental compilation -->
           <!-- <useIncrementalCompilation>false</useIncrementalCompilation> -->
 
           <annotationProcessorPaths combine.self="override">
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
             <path>
               <groupId>io.micronaut</groupId>
               <artifactId>micronaut-inject-java</artifactId>
@@ -219,17 +195,6 @@
               <groupId>io.micronaut.serde</groupId>
               <artifactId>micronaut-serde-processor</artifactId>
               <version>${micronaut.serialization.version}</version>
-              <exclusions>
-                <exclusion>
-                  <groupId>io.micronaut</groupId>
-                  <artifactId>micronaut-inject</artifactId>
-                </exclusion>
-              </exclusions>
-            </path>
-            <path>
-              <groupId>io.micronaut.spring</groupId>
-              <artifactId>micronaut-spring-annotation</artifactId>
-              <version>${micronaut.spring.version}</version>
               <exclusions>
                 <exclusion>
                   <groupId>io.micronaut</groupId>

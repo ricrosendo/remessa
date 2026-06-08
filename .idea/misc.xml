@@ -5,8 +5,8 @@
     <option name="originalFiles">
       <list>
         <option value="$PROJECT_DIR$/core/pom.xml" />
-        <option value="$PROJECT_DIR$/users/pom.xml" />
-        <option value="$PROJECT_DIR$/remittances/pom.xml" />
+        <option value="$PROJECT_DIR$/user-service/pom.xml" />
+        <option value="$PROJECT_DIR$/remittance-service/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">
