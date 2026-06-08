@@ -25,6 +25,8 @@ import java.util.Objects;
 public class RemittanceServiceImpl implements RemittanceService {
 
     private static final DateTimeFormatter PTAX_DATE_FORMATTER = DateTimeFormatter.ofPattern("MM-dd-yyyy");
+    private static final BigDecimal INDIVIDUAL_DAILY_LIMIT = BigDecimal.valueOf(10000);
+    private static final BigDecimal COMPANY_DAILY_LIMIT = BigDecimal.valueOf(50000);
 
     private final UserClient userClient;
     private final PtaxClient ptaxClient;
@@ -44,6 +46,7 @@ public class RemittanceServiceImpl implements RemittanceService {
 
         UserResponse sender = userClient.findById(request.senderUserId());
         UserResponse receiver = userClient.findById(request.receiverUserId());
+        validateDailyLimit(sender, request);
         BigDecimal exchangeRate = findExchangeRate(request);
 
         if (sender.brlBalance().compareTo(request.brlAmount()) < 0) {
@@ -79,6 +82,27 @@ public class RemittanceServiceImpl implements RemittanceService {
             updateStatus(remittance, updatedSender == null ? RemittanceStatus.FAILED : RemittanceStatus.COMPENSATED, exception.getMessage());
             throw new RemittanceException("Remittance transaction failed: " + exception.getMessage());
         }
+    }
+
+    private void validateDailyLimit(UserResponse sender, CreateRemittanceRequest request) {
+        BigDecimal dailyLimit = dailyLimitFor(sender);
+        BigDecimal dailyTotal = remittanceRepository.sumBrlAmountBySenderUserIdAndQuotationDateAndStatus(
+                sender.id(),
+                request.quotationDate(),
+                RemittanceStatus.COMPLETED
+        );
+
+        if (dailyTotal.add(request.brlAmount()).compareTo(dailyLimit) > 0) {
+            throw new RemittanceException("Daily remittance limit exceeded for user type " + sender.type());
+        }
+    }
+
+    private BigDecimal dailyLimitFor(UserResponse sender) {
+        return switch (sender.type()) {
+            case "INDIVIDUAL" -> INDIVIDUAL_DAILY_LIMIT;
+            case "COMPANY" -> COMPANY_DAILY_LIMIT;
+            default -> throw new RemittanceException("Unsupported user type for remittance: " + sender.type());
+        };
     }
 
     private Remittance createPendingRemittance(CreateRemittanceRequest request, BigDecimal exchangeRate, BigDecimal usdAmount) {

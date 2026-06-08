@@ -50,6 +50,7 @@ class RemittanceServiceImplTest {
         MockitoAnnotations.openMocks(this);
         when(remittanceRepository.save(any(Remittance.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(remittanceRepository.update(any(Remittance.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(remittanceRepository.sumBrlAmountBySenderUserIdAndQuotationDateAndStatus(any(), any(), any())).thenReturn(BigDecimal.ZERO);
         remittanceService = new RemittanceServiceImpl(userClient, ptaxClient, remittanceRepository);
     }
 
@@ -224,7 +225,114 @@ class RemittanceServiceImplTest {
         assertEquals(BigDecimal.valueOf(25).setScale(2), response.usdAmount());
     }
 
+    @Test
+    void shouldNotCreateRemittanceWhenIndividualDailyLimitIsExceeded() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        LocalDate quotationDate = LocalDate.of(2025, 1, 30);
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(1000), quotationDate);
+
+        when(userClient.findById(senderId)).thenReturn(user(senderId, BigDecimal.valueOf(20000), BigDecimal.ZERO));
+        when(userClient.findById(receiverId)).thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(remittanceRepository.sumBrlAmountBySenderUserIdAndQuotationDateAndStatus(senderId, quotationDate, RemittanceStatus.COMPLETED))
+                .thenReturn(BigDecimal.valueOf(9500));
+
+        RemittanceException exception = assertThrows(RemittanceException.class, () -> remittanceService.create(request));
+
+        assertEquals("Daily remittance limit exceeded for user type INDIVIDUAL", exception.getMessage());
+        verify(ptaxClient, never()).findDollarQuotation(any(), org.mockito.ArgumentMatchers.anyInt(), any());
+        verify(userClient, never()).updateBalance(any(), any());
+    }
+
+    @Test
+    void shouldNotCreateRemittanceWhenCompanyDailyLimitIsExceeded() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        LocalDate quotationDate = LocalDate.of(2025, 1, 30);
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(1000), quotationDate);
+
+        when(userClient.findById(senderId)).thenReturn(company(senderId, BigDecimal.valueOf(60000), BigDecimal.ZERO));
+        when(userClient.findById(receiverId)).thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(remittanceRepository.sumBrlAmountBySenderUserIdAndQuotationDateAndStatus(senderId, quotationDate, RemittanceStatus.COMPLETED))
+                .thenReturn(BigDecimal.valueOf(49500));
+
+        RemittanceException exception = assertThrows(RemittanceException.class, () -> remittanceService.create(request));
+
+        assertEquals("Daily remittance limit exceeded for user type COMPANY", exception.getMessage());
+        verify(ptaxClient, never()).findDollarQuotation(any(), org.mockito.ArgumentMatchers.anyInt(), any());
+        verify(userClient, never()).updateBalance(any(), any());
+    }
+
+    @Test
+    void shouldCreateRemittanceWhenIndividualReachesExactDailyLimit() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        LocalDate quotationDate = LocalDate.of(2025, 1, 30);
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(500), quotationDate);
+
+        when(userClient.findById(senderId)).thenReturn(user(senderId, BigDecimal.valueOf(1000), BigDecimal.ZERO));
+        when(userClient.findById(receiverId)).thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(remittanceRepository.sumBrlAmountBySenderUserIdAndQuotationDateAndStatus(senderId, quotationDate, RemittanceStatus.COMPLETED))
+                .thenReturn(BigDecimal.valueOf(9500));
+        when(ptaxClient.findDollarQuotation("'01-30-2025'", 100, "json"))
+                .thenReturn(new PtaxQuotationResponse(List.of(new PtaxQuotation(BigDecimal.valueOf(5)))));
+        when(userClient.updateBalance(senderId, new UpdateUserBalanceRequest(BigDecimal.valueOf(500), BigDecimal.ZERO)))
+                .thenReturn(user(senderId, BigDecimal.valueOf(500), BigDecimal.ZERO));
+        when(userClient.updateBalance(receiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(100).setScale(2))))
+                .thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.valueOf(100).setScale(2)));
+
+        RemittanceResponse response = remittanceService.create(request);
+
+        assertEquals(BigDecimal.valueOf(500), response.brlAmount());
+    }
+
+    @Test
+    void shouldCreateRemittanceWhenCompanyReachesExactDailyLimit() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        LocalDate quotationDate = LocalDate.of(2025, 1, 30);
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(500), quotationDate);
+
+        when(userClient.findById(senderId)).thenReturn(company(senderId, BigDecimal.valueOf(1000), BigDecimal.ZERO));
+        when(userClient.findById(receiverId)).thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.ZERO));
+        when(remittanceRepository.sumBrlAmountBySenderUserIdAndQuotationDateAndStatus(senderId, quotationDate, RemittanceStatus.COMPLETED))
+                .thenReturn(BigDecimal.valueOf(49500));
+        when(ptaxClient.findDollarQuotation("'01-30-2025'", 100, "json"))
+                .thenReturn(new PtaxQuotationResponse(List.of(new PtaxQuotation(BigDecimal.valueOf(5)))));
+        when(userClient.updateBalance(senderId, new UpdateUserBalanceRequest(BigDecimal.valueOf(500), BigDecimal.ZERO)))
+                .thenReturn(company(senderId, BigDecimal.valueOf(500), BigDecimal.ZERO));
+        when(userClient.updateBalance(receiverId, new UpdateUserBalanceRequest(BigDecimal.ZERO, BigDecimal.valueOf(100).setScale(2))))
+                .thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.valueOf(100).setScale(2)));
+
+        RemittanceResponse response = remittanceService.create(request);
+
+        assertEquals(BigDecimal.valueOf(500), response.brlAmount());
+    }
+
+    @Test
+    void shouldNotCreateRemittanceWhenSenderUserTypeIsUnsupported() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        CreateRemittanceRequest request = new CreateRemittanceRequest(senderId, receiverId, BigDecimal.valueOf(500), LocalDate.of(2025, 1, 30));
+
+        when(userClient.findById(senderId)).thenReturn(userWithType(senderId, "UNKNOWN", BigDecimal.valueOf(1000), BigDecimal.ZERO));
+        when(userClient.findById(receiverId)).thenReturn(user(receiverId, BigDecimal.ZERO, BigDecimal.ZERO));
+
+        RemittanceException exception = assertThrows(RemittanceException.class, () -> remittanceService.create(request));
+
+        assertEquals("Unsupported user type for remittance: UNKNOWN", exception.getMessage());
+        verify(remittanceRepository, never()).sumBrlAmountBySenderUserIdAndQuotationDateAndStatus(any(), any(), any());
+        verify(ptaxClient, never()).findDollarQuotation(any(), org.mockito.ArgumentMatchers.anyInt(), any());
+        verify(userClient, never()).updateBalance(any(), any());
+    }
     private UserResponse user(UUID id, BigDecimal brlBalance, BigDecimal usdBalance) {
         return new UserResponse(id, "User", "user@email.com", "INDIVIDUAL", "12345678901", null, brlBalance, usdBalance);
+    }
+
+
+    private UserResponse userWithType(UUID id, String type, BigDecimal brlBalance, BigDecimal usdBalance) {
+        return new UserResponse(id, "User", "user@email.com", type, "12345678901", null, brlBalance, usdBalance);
+    }    private UserResponse company(UUID id, BigDecimal brlBalance, BigDecimal usdBalance) {
+        return new UserResponse(id, "Company", "company@email.com", "COMPANY", null, "12345678000199", brlBalance, usdBalance);
     }
 }
