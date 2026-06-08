@@ -1,6 +1,7 @@
 package br.com.inter.controller;
 
 import br.com.inter.dto.CreateUserRequest;
+import br.com.inter.dto.UpdateUserBalanceRequest;
 import br.com.inter.dto.UpdateUserRequest;
 import br.com.inter.dto.UserResponse;
 import br.com.inter.service.UserService;
@@ -55,6 +56,12 @@ public class UserController {
     @Operation(summary = "Atualizar usuário", description = "Atualiza os dados de um usuário existente.")
     public UserResponse update(@Parameter(description = "ID do usuário", required = true) UUID id, @Body @Valid UpdateUserRequest request) {
         return UserResponse.from(userService.update(id, request));
+    }
+
+    @Put("/{id}/balance")
+    @Operation(summary = "Atualizar saldo do usuário", description = "Atualiza os saldos em Real e Dólar de um usuário existente.")
+    public UserResponse updateBalance(@Parameter(description = "ID do usuário", required = true) UUID id, @Body @Valid UpdateUserBalanceRequest request) {
+        return UserResponse.from(userService.updateBalance(id, request));
     }
 
     @Delete("/{id}")

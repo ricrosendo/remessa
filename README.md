@@ -53,6 +53,7 @@ POST   /api/users
 GET    /api/users
 GET    /api/users/{id}
 PUT    /api/users/{id}
+PUT    /api/users/{id}/balance
 DELETE /api/users/{id}
 ```
 
@@ -64,13 +65,41 @@ Configuração local:
 
 ### remittance-service
 
-Serviço reservado para os recursos de remessas.
+Serviço responsável por executar remessas entre usuários.
+
+Uma remessa:
+
+- Debita um valor em Real do usuário remetente
+- Consulta a cotação do Dólar na API PTAX do Banco Central
+- Converte o valor de Real para Dólar usando o campo `cotacaoCompra`
+- Credita o valor convertido em Dólar no usuário destinatário
+
+Endpoint:
+
+```text
+POST /api/remittances
+```
+
+Configuração local:
+
+- Porta: `8082`
+- Context path: `/api`
+- URL do `user-service`: `http://localhost:8081/api`
+- URL PTAX: `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata`
 
 ## Como executar
 
 ### user-service
 
 Executar a partir da pasta `user-service`:
+
+```powershell
+.\mvnw.bat mn:run
+```
+
+### remittance-service
+
+Executar a partir da pasta `remittance-service`:
 
 ```powershell
 .\mvnw.bat mn:run
@@ -108,6 +137,14 @@ Executar a partir da pasta `user-service`:
 .\mvnw.bat test
 ```
 
+### remittance-service
+
+Executar a partir da pasta `remittance-service`:
+
+```powershell
+.\mvnw.bat test
+```
+
 ## Testes
 
 O `user-service` possui testes com JUnit 5 e Mockito cobrindo as principais regras de negócio do `UserServiceImpl`, incluindo:
@@ -134,6 +171,25 @@ O `user-service` possui testes com JUnit 5 e Mockito cobrindo as principais regr
   "usdBalance": 100.00
 }
 ```
+
+## Exemplo de criação de remessa
+
+```json
+{
+  "senderUserId": "00000000-0000-0000-0000-000000000001",
+  "receiverUserId": "00000000-0000-0000-0000-000000000002",
+  "brlAmount": 500.00,
+  "quotationDate": "2025-01-30"
+}
+```
+
+Exemplo de chamada:
+
+```text
+POST http://localhost:8082/api/remittances
+```
+
+Antes de chamar a API de remessa, o `user-service` precisa estar em execução, pois o `remittance-service` consulta e atualiza os saldos dos usuários por HTTP.
 
 ## Observações
 

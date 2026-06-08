@@ -83,6 +83,12 @@
     </dependency>
 
     <dependency>
+      <groupId>io.micronaut</groupId>
+      <artifactId>micronaut-http-client</artifactId>
+      <scope>compile</scope>
+    </dependency>
+
+    <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <scope>runtime</scope>
@@ -98,12 +104,6 @@
       <groupId>org.yaml</groupId>
       <artifactId>snakeyaml</artifactId>
       <scope>runtime</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>io.micronaut</groupId>
-      <artifactId>micronaut-http-client</artifactId>
-      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -124,6 +124,12 @@
       <scope>test</scope>
     </dependency>
 
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
   <build>
     <plugins>
@@ -132,18 +138,6 @@
         <artifactId>micronaut-maven-plugin</artifactId>
         <configuration>
           <configFile>aot-${packaging}.properties</configFile>
-<configurationValidation>
-    <enabled>false</enabled>
-
-    <suppressions>
-        <suppression>datasources.default.db-type</suppression>
-    </suppressions>
-    <failOnNotPresent>true</failOnNotPresent>
-    <validateDependencyInjection>false</validateDependencyInjection>
-    <cacheEnabled>true</cacheEnabled>
-
-</configurationValidation>
-
         </configuration>
       </plugin>
 

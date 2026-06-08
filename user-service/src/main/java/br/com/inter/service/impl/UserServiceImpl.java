@@ -4,6 +4,7 @@ import br.com.inter.exception.InvalidUserDocumentException;
 import br.com.inter.exception.UserAlreadyExistsException;
 import br.com.inter.exception.UserNotFoundException;
 import br.com.inter.dto.CreateUserRequest;
+import br.com.inter.dto.UpdateUserBalanceRequest;
 import br.com.inter.dto.UpdateUserRequest;
 import br.com.inter.model.User;
 import br.com.inter.enums.UserType;
@@ -70,6 +71,17 @@ public class UserServiceImpl implements UserService {
         user.setType(request.type());
         user.setCpf(documentForIndividual(request.type(), request.cpf()));
         user.setCnpj(documentForCompany(request.type(), request.cnpj()));
+        user.setBrlBalance(request.brlBalance());
+        user.setUsdBalance(request.usdBalance());
+
+        return userRepository.update(user);
+    }
+
+    @Transactional
+    @Override
+    public User updateBalance(UUID id, UpdateUserBalanceRequest request) {
+        User user = findById(id);
+
         user.setBrlBalance(request.brlBalance());
         user.setUsdBalance(request.usdBalance());
 

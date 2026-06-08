@@ -1,5 +1,29 @@
 micronaut:
   application:
     name: remittance-service
-  profiles:
-    active: local
+  server:
+    port: 8082
+    context-path: /api
+
+datasource:
+  default:
+    dialect: H2
+    driver-class-name: org.h2.Driver
+    password:
+    url: jdbc:h2:mem:test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+
+jpa:
+  properties:
+    hibernate:
+      dialect: org.hibernate.dialect.H2Dialect
+      format_sql: true
+      use_sql_comments: true
+      show_sql: true
+      auto: update
+
+clients:
+  user-service:
+    url: http://localhost:8081/api
+  ptax:
+    url: https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata
