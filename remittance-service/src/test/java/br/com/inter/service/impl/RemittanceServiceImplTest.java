@@ -12,6 +12,7 @@ import br.com.inter.enums.RemittanceStatus;
 import br.com.inter.exception.RemittanceException;
 import br.com.inter.model.Remittance;
 import br.com.inter.repository.RemittanceRepository;
+import br.com.inter.validator.DailyRemittanceLimitValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -51,7 +52,7 @@ class RemittanceServiceImplTest {
         when(remittanceRepository.save(any(Remittance.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(remittanceRepository.update(any(Remittance.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(remittanceRepository.sumBrlAmountBySenderUserIdAndQuotationDateAndStatus(any(), any(), any())).thenReturn(BigDecimal.ZERO);
-        remittanceService = new RemittanceServiceImpl(userClient, ptaxClient, remittanceRepository);
+        remittanceService = new RemittanceServiceImpl(userClient, remittanceRepository, new PtaxExchangeRateService(ptaxClient), new DailyRemittanceLimitValidator(remittanceRepository));
     }
 
     @Test
@@ -403,6 +404,7 @@ class RemittanceServiceImplTest {
         assertEquals(BigDecimal.valueOf(5), secondResponse.exchangeRate());
         assertEquals(BigDecimal.valueOf(100).setScale(2), secondResponse.usdAmount());
     }
+
     private UserResponse user(UUID id, BigDecimal brlBalance, BigDecimal usdBalance) {
         return new UserResponse(id, "User", "user@email.com", "INDIVIDUAL", "12345678901", null, brlBalance, usdBalance);
     }

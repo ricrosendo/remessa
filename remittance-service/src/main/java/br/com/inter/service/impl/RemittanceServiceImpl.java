@@ -1,10 +1,7 @@
 package br.com.inter.service.impl;
 
-import br.com.inter.client.PtaxClient;
 import br.com.inter.client.UserClient;
 import br.com.inter.dto.CreateRemittanceRequest;
-import br.com.inter.dto.PtaxQuotation;
-import br.com.inter.dto.PtaxQuotationResponse;
 import br.com.inter.dto.RemittanceResponse;
 import br.com.inter.dto.UpdateUserBalanceRequest;
 import br.com.inter.dto.UserResponse;
@@ -12,32 +9,33 @@ import br.com.inter.enums.RemittanceStatus;
 import br.com.inter.exception.RemittanceException;
 import br.com.inter.model.Remittance;
 import br.com.inter.repository.RemittanceRepository;
+import br.com.inter.service.ExchangeRateService;
 import br.com.inter.service.RemittanceService;
+import br.com.inter.validator.DailyRemittanceLimitValidator;
 import jakarta.inject.Singleton;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Singleton
 public class RemittanceServiceImpl implements RemittanceService {
 
-    private static final DateTimeFormatter PTAX_DATE_FORMATTER = DateTimeFormatter.ofPattern("MM-dd-yyyy");
-    private static final BigDecimal INDIVIDUAL_DAILY_LIMIT = BigDecimal.valueOf(10000);
-    private static final BigDecimal COMPANY_DAILY_LIMIT = BigDecimal.valueOf(50000);
-
     private final UserClient userClient;
-    private final PtaxClient ptaxClient;
     private final RemittanceRepository remittanceRepository;
-    private final AtomicReference<BigDecimal> lastExchangeRate = new AtomicReference<>();
+    private final ExchangeRateService exchangeRateService;
+    private final DailyRemittanceLimitValidator dailyRemittanceLimitValidator;
 
-    public RemittanceServiceImpl(UserClient userClient, PtaxClient ptaxClient, RemittanceRepository remittanceRepository) {
+    public RemittanceServiceImpl(
+            UserClient userClient,
+            RemittanceRepository remittanceRepository,
+            ExchangeRateService exchangeRateService,
+            DailyRemittanceLimitValidator dailyRemittanceLimitValidator
+    ) {
         this.userClient = userClient;
-        this.ptaxClient = ptaxClient;
         this.remittanceRepository = remittanceRepository;
+        this.exchangeRateService = exchangeRateService;
+        this.dailyRemittanceLimitValidator = dailyRemittanceLimitValidator;
     }
 
     @Override
@@ -48,8 +46,8 @@ public class RemittanceServiceImpl implements RemittanceService {
 
         UserResponse sender = userClient.findById(request.senderUserId());
         UserResponse receiver = userClient.findById(request.receiverUserId());
-        validateDailyLimit(sender, request);
-        BigDecimal exchangeRate = findExchangeRate(request);
+        dailyRemittanceLimitValidator.validate(sender, request);
+        BigDecimal exchangeRate = exchangeRateService.findExchangeRate(request.quotationDate());
 
         if (sender.brlBalance().compareTo(request.brlAmount()) < 0) {
             throw new RemittanceException("Insufficient BRL balance for remittance");
@@ -84,27 +82,6 @@ public class RemittanceServiceImpl implements RemittanceService {
             updateStatus(remittance, updatedSender == null ? RemittanceStatus.FAILED : RemittanceStatus.COMPENSATED, exception.getMessage());
             throw new RemittanceException("Remittance transaction failed: " + exception.getMessage());
         }
-    }
-
-    private void validateDailyLimit(UserResponse sender, CreateRemittanceRequest request) {
-        BigDecimal dailyLimit = dailyLimitFor(sender);
-        BigDecimal dailyTotal = remittanceRepository.sumBrlAmountBySenderUserIdAndQuotationDateAndStatus(
-                sender.id(),
-                request.quotationDate(),
-                RemittanceStatus.COMPLETED
-        );
-
-        if (dailyTotal.add(request.brlAmount()).compareTo(dailyLimit) > 0) {
-            throw new RemittanceException("Daily remittance limit exceeded for user type " + sender.type());
-        }
-    }
-
-    private BigDecimal dailyLimitFor(UserResponse sender) {
-        return switch (sender.type()) {
-            case "INDIVIDUAL" -> INDIVIDUAL_DAILY_LIMIT;
-            case "COMPANY" -> COMPANY_DAILY_LIMIT;
-            default -> throw new RemittanceException("Unsupported user type for remittance: " + sender.type());
-        };
     }
 
     private Remittance createPendingRemittance(CreateRemittanceRequest request, BigDecimal exchangeRate, BigDecimal usdAmount) {
@@ -144,30 +121,5 @@ public class RemittanceServiceImpl implements RemittanceService {
         remittance.setStatus(status);
         remittance.setFailureReason(failureReason);
         remittanceRepository.update(remittance);
-    }
-
-    private BigDecimal findExchangeRate(CreateRemittanceRequest request) {
-        String quotationDate = "'" + request.quotationDate().format(PTAX_DATE_FORMATTER) + "'";
-        PtaxQuotationResponse response = ptaxClient.findDollarQuotation(quotationDate, 100, "json");
-
-        return response.value().stream()
-                .map(PtaxQuotation::cotacaoCompra)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .map(exchangeRate -> {
-                    lastExchangeRate.set(exchangeRate);
-                    return exchangeRate;
-                })
-                .orElseGet(() -> cachedExchangeRate(request));
-    }
-
-    private BigDecimal cachedExchangeRate(CreateRemittanceRequest request) {
-        BigDecimal exchangeRate = lastExchangeRate.get();
-
-        if (exchangeRate == null) {
-            throw new RemittanceException("Dollar quotation not found for date: " + request.quotationDate());
-        }
-
-        return exchangeRate;
     }
 }
