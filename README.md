@@ -1,6 +1,6 @@
 # Remessa
 
-Projeto Java com Micronaut para gerenciamento de usuarios e remessas internacionais entre pessoas fisicas e empresas.
+Projeto Java com Micronaut para gerenciamento de usuários e remessas internacionais entre pessoas físicas e empresas.
 
 ## Estrutura
 
@@ -28,25 +28,25 @@ remessa/
 - JUnit 5
 - Mockito
 
-## Servicos
+## Serviços
 
 ### user-service
 
-Servico responsavel pelo cadastro e manutencao de usuarios.
+Serviço responsável pelo cadastro e manutenção de usuários.
 
 Recursos implementados:
 
-- Cadastro de usuarios pessoa fisica e pessoa juridica.
-- Listagem de usuarios.
+- Cadastro de usuários pessoa física e pessoa jurídica.
+- Listagem de usuários.
 - Busca por ID.
-- Atualizacao de usuario.
-- Atualizacao de saldo em BRL e USD.
-- Remocao de usuario.
-- Validacao de CPF obrigatorio para pessoa fisica.
-- Validacao de CNPJ obrigatorio para pessoa juridica.
-- Validacao de unicidade para e-mail, CPF e CNPJ.
+- Atualização de usuário.
+- Atualização de saldo em BRL e USD.
+- Remoção de usuário.
+- Validação de CPF obrigatório para pessoa física.
+- Validação de CNPJ obrigatório para pessoa jurídica.
+- Validação de unicidade para e-mail, CPF e CNPJ.
 
-Tipos de usuario:
+Tipos de usuário:
 
 - `INDIVIDUAL`
 - `COMPANY`
@@ -62,24 +62,24 @@ PUT    /api/users/{id}/balance
 DELETE /api/users/{id}
 ```
 
-Configuracao local:
+Configuração local:
 
 - Porta: `8081`
 - Context path: `/api`
-- Banco: H2 em memoria
+- Banco: H2 em memória
 
 ### remittance-service
 
-Servico responsavel por criar remessas internacionais entre usuarios.
+Serviço responsável por criar remessas internacionais entre usuários.
 
 Uma remessa:
 
-- Debita um valor em BRL do usuario remetente.
-- Consulta a cotacao do dolar na API PTAX do Banco Central.
+- Debita um valor em BRL do usuário remetente.
+- Consulta a cotação do dólar na API PTAX do Banco Central.
 - Converte o valor de BRL para USD usando `cotacaoCompra`.
-- Credita o valor convertido em USD no usuario destinatario.
+- Credita o valor convertido em USD no usuário destinatário.
 - Persiste o status da remessa.
-- Compensa o saldo do remetente em caso de falha apos o debito.
+- Compensa o saldo do remetente em caso de falha após o débito.
 
 Endpoint:
 
@@ -87,36 +87,36 @@ Endpoint:
 POST /api/remittances
 ```
 
-Configuracao local:
+Configuração local:
 
 - Porta: `8082`
 - Context path: `/api`
 - URL do `user-service`: `http://localhost:8081/api`
 - URL PTAX: `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata`
 
-## Regras de negocio
+## Regras de negócio
 
-### Usuarios
+### Usuários
 
-- E-mails devem ser unicos.
-- CPFs devem ser unicos.
-- CNPJs devem ser unicos.
-- Pessoa fisica (`INDIVIDUAL`) deve possuir CPF.
-- Pessoa juridica (`COMPANY`) deve possuir CNPJ.
+- E-mails devem ser únicos.
+- CPFs devem ser únicos.
+- CNPJs devem ser únicos.
+- Pessoa física (`INDIVIDUAL`) deve possuir CPF.
+- Pessoa jurídica (`COMPANY`) deve possuir CNPJ.
 
 ### Remessas
 
-- Remetente e destinatario devem ser usuarios diferentes.
+- Remetente e destinatário devem ser usuários diferentes.
 - O remetente precisa ter saldo BRL suficiente.
-- Nao ha restricao de remessa entre PF e PJ, nem entre PJ e PF.
-- PF possui limite diario de `R$ 10.000,00` em remessas concluidas.
-- PJ possui limite diario de `R$ 50.000,00` em remessas concluidas.
-- A conversao BRL/USD usa arredondamento `HALF_UP` com 2 casas decimais.
-- A cotacao PTAX usa o formato de data `MM-dd-yyyy`.
-- Quando a PTAX nao retorna cotacao, por exemplo em finais de semana, o servico usa a ultima cotacao valida obtida em cache.
-- Se nao existir cotacao retornada pela PTAX nem cotacao em cache, a remessa e rejeitada.
+- Não há restrição de remessa entre PF e PJ, nem entre PJ e PF.
+- PF possui limite diário de `R$ 10.000,00` em remessas concluídas.
+- PJ possui limite diário de `R$ 50.000,00` em remessas concluídas.
+- A conversão BRL/USD usa arredondamento `HALF_UP` com 2 casas decimais.
+- A cotação PTAX usa o formato de data `MM-dd-yyyy`.
+- Quando a PTAX não retorna cotação, por exemplo em finais de semana, o serviço usa a última cotação válida obtida em cache.
+- Se não existir cotação retornada pela PTAX nem cotação em cache, a remessa é rejeitada.
 
-## Organizacao do remittance-service
+## Organização do remittance-service
 
 O `remittance-service` foi organizado para separar responsabilidades:
 
@@ -130,13 +130,13 @@ service/impl/RemittanceServiceImpl.java
 Responsabilidades:
 
 - `RemittanceServiceImpl`: orquestra o fluxo da remessa.
-- `PtaxExchangeRateService`: consulta PTAX, seleciona a cotacao valida e aplica cache da ultima cotacao obtida.
-- `DailyRemittanceLimitValidator`: valida limites diarios de PF e PJ.
-- `ExchangeRateService`: abstrai a origem da cotacao.
+- `PtaxExchangeRateService`: consulta PTAX, seleciona a cotação válida e aplica cache da última cotação obtida.
+- `DailyRemittanceLimitValidator`: valida limites diários de PF e PJ.
+- `ExchangeRateService`: abstrai a origem da cotação.
 
 ## Como executar localmente
 
-Execute cada servico em um terminal separado.
+Execute cada serviço em um terminal separado.
 
 ### user-service
 
@@ -152,7 +152,7 @@ cd remittance-service
 .\mvnw.bat mn:run
 ```
 
-O `user-service` deve estar em execucao antes de criar remessas, pois o `remittance-service` consulta e atualiza usuarios por HTTP.
+O `user-service` deve estar em execução antes de criar remessas, pois o `remittance-service` consulta e atualiza usuários por HTTP.
 
 ## Swagger / OpenAPI
 
@@ -186,7 +186,7 @@ http://localhost:8082/api/swagger/swagger.yml
 
 ## Docker
 
-O projeto possui `Dockerfile` para os dois servicos e um `docker-compose.yml` na raiz.
+O projeto possui `Dockerfile` para os dois serviços e um `docker-compose.yml` na raiz.
 
 ### Subir com Docker Compose
 
@@ -196,7 +196,7 @@ Na raiz do projeto:
 docker compose up --build
 ```
 
-Servicos expostos:
+Serviços expostos:
 
 - `user-service`: `http://localhost:8081/api`
 - `remittance-service`: `http://localhost:8082/api`
@@ -278,34 +278,34 @@ A partir da pasta `remittance-service`:
 
 Possui testes cobrindo:
 
-- Criacao de usuarios PF e PJ.
-- Validacoes de CPF/CNPJ obrigatorios.
-- Validacao de e-mail, CPF e CNPJ duplicados.
-- Busca, listagem, atualizacao e remocao de usuarios.
-- Atualizacao de saldo.
-- Tratamento de usuario nao encontrado.
+- Criação de usuários PF e PJ.
+- Validações de CPF/CNPJ obrigatórios.
+- Validação de e-mail, CPF e CNPJ duplicados.
+- Busca, listagem, atualização e remoção de usuários.
+- Atualização de saldo.
+- Tratamento de usuário não encontrado.
 
 ### remittance-service
 
 Possui testes cobrindo:
 
-- Criacao de remessa.
-- Validacao de remetente e destinatario diferentes.
+- Criação de remessa.
+- Validação de remetente e destinatário diferentes.
 - Saldo insuficiente.
-- Conversao BRL/USD e arredondamento.
-- Cotacao PTAX e fallback para cache.
-- Compensacao em caso de falha ao creditar destinatario.
-- Limites diarios de PF e PJ.
+- Conversão BRL/USD e arredondamento.
+- Cotação PTAX e fallback para cache.
+- Compensação em caso de falha ao creditar destinatário.
+- Limites diários de PF e PJ.
 - Remessas PF para PJ e PJ para PF.
 - Testes isolados de `PtaxExchangeRateService`.
 - Testes isolados de `DailyRemittanceLimitValidator`.
 
-Ultima validacao executada:
+Última validação executada:
 
 - `user-service`: 35 testes passando.
 - `remittance-service`: 33 testes passando.
 
-## Exemplo de criacao de usuario PF
+## Exemplo de criação de usuário PF
 
 ```json
 {
@@ -326,7 +326,7 @@ Chamada:
 POST http://localhost:8081/api/users
 ```
 
-## Exemplo de criacao de remessa
+## Exemplo de criação de remessa
 
 ```json
 {
@@ -343,10 +343,10 @@ Chamada:
 POST http://localhost:8082/api/remittances
 ```
 
-## Observacoes
+## Observações
 
-- Use o Maven Wrapper de cada servico.
-- Nao e necessario ter `mvn` instalado globalmente.
-- O banco H2 e configurado em memoria para ambiente local e testes.
-- Em Docker/Kubernetes, a configuracao atual tambem usa H2 em memoria.
+- Use o Maven Wrapper de cada serviço.
+- Não é necessário ter `mvn` instalado globalmente.
+- O banco H2 é configurado em memória para ambiente local e testes.
+- Em Docker/Kubernetes, a configuração atual também usa H2 em memória.
 - Para uso produtivo, substitua H2 por um banco persistente e configure secrets/configmaps adequados.
