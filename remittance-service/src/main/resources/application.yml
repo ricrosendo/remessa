@@ -4,6 +4,14 @@ micronaut:
   server:
     port: 8082
     context-path: /api
+  router:
+    static-resources:
+      swagger:
+        paths: classpath:META-INF/swagger
+        mapping: /swagger/**
+      swagger-ui:
+        paths: classpath:META-INF/swagger/views/swagger-ui
+        mapping: /swagger-ui/**
 
 datasources:
   default:
