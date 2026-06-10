@@ -115,6 +115,9 @@ Configuração local:
 - A cotação PTAX usa o formato de data `MM-dd-yyyy`.
 - Quando a PTAX não retorna cotação, por exemplo em finais de semana, o serviço usa a última cotação válida obtida em cache.
 - Se não existir cotação retornada pela PTAX nem cotação em cache, a remessa é rejeitada.
+- A listagem de remessas aceita filtros opcionais por período e por usuário.
+- O filtro `userId` da listagem considera remessas em que o usuário é remetente ou destinatário.
+- Quando informado, `startDate` deve ser menor ou igual a `endDate`.
 
 ## Organização do remittance-service
 
@@ -343,6 +346,37 @@ Chamada:
 POST http://localhost:8082/api/remittances
 ```
 
+## Exemplo de listagem de remessas
+
+Listar todas as remessas:
+
+```text
+GET http://localhost:8082/api/remittances
+```
+
+Listar remessas por período:
+
+```text
+GET http://localhost:8082/api/remittances?startDate=2025-01-01&endDate=2025-01-31
+```
+
+Listar remessas por usuário:
+
+```text
+GET http://localhost:8082/api/remittances?userId=00000000-0000-0000-0000-000000000001
+```
+
+Listar remessas por período e usuário:
+
+```text
+GET http://localhost:8082/api/remittances?startDate=2025-01-01&endDate=2025-01-31&userId=00000000-0000-0000-0000-000000000001
+```
+
+Parâmetros opcionais:
+
+- `startDate`: data inicial da cotação no formato `yyyy-MM-dd`.
+- `endDate`: data final da cotação no formato `yyyy-MM-dd`.
+- `userId`: UUID do remetente ou destinatário.
 ## Observações
 
 - Use o Maven Wrapper de cada serviço.

@@ -20,11 +20,13 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,6 +63,28 @@ class RemittanceControllerTest {
         assertEquals(BigDecimal.valueOf(500), response.body().brlAmount());
         assertEquals(BigDecimal.valueOf(100).setScale(2), response.body().usdAmount());
         verify(remittanceService).create(request);
+    }
+
+    @Test
+    void shouldListRemittancesByFilters() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        LocalDate startDate = LocalDate.of(2025, 1, 1);
+        LocalDate endDate = LocalDate.of(2025, 1, 31);
+        RemittanceResponse serviceResponse = response(senderId, receiverId);
+
+        when(remittanceService.list(startDate, endDate, senderId)).thenReturn(List.of(serviceResponse));
+
+        HttpResponse<RemittanceResponse[]> response = httpClient.toBlocking().exchange(
+                HttpRequest.GET("/api/remittances?startDate=2025-01-01&endDate=2025-01-31&userId=" + senderId),
+                RemittanceResponse[].class
+        );
+
+        assertEquals(HttpStatus.OK, response.status());
+        assertNotNull(response.body());
+        assertEquals(1, response.body().length);
+        assertEquals(senderId, response.body()[0].senderUserId());
+        verify(remittanceService).list(eq(startDate), eq(endDate), eq(senderId));
     }
 
     @Test

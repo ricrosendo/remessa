@@ -405,6 +405,67 @@ class RemittanceServiceImplTest {
         assertEquals(BigDecimal.valueOf(100).setScale(2), secondResponse.usdAmount());
     }
 
+    @Test
+    void shouldListRemittancesByFilters() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        LocalDate startDate = LocalDate.of(2025, 1, 1);
+        LocalDate endDate = LocalDate.of(2025, 1, 31);
+        Remittance remittance = remittance(senderId, receiverId, BigDecimal.valueOf(500), BigDecimal.valueOf(100).setScale(2), BigDecimal.valueOf(5), LocalDate.of(2025, 1, 30));
+
+        when(remittanceRepository.findByFilters(startDate, endDate, senderId)).thenReturn(List.of(remittance));
+
+        List<RemittanceResponse> response = remittanceService.list(startDate, endDate, senderId);
+
+        assertEquals(1, response.size());
+        assertEquals(senderId, response.getFirst().senderUserId());
+        assertEquals(receiverId, response.getFirst().receiverUserId());
+        assertEquals(BigDecimal.valueOf(500), response.getFirst().brlAmount());
+        assertEquals(BigDecimal.valueOf(100).setScale(2), response.getFirst().usdAmount());
+        assertEquals(BigDecimal.valueOf(5), response.getFirst().exchangeRate());
+        assertEquals(LocalDate.of(2025, 1, 30), response.getFirst().quotationDate());
+        verify(remittanceRepository).findByFilters(startDate, endDate, senderId);
+    }
+
+    @Test
+    void shouldListRemittancesWithoutFilters() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        Remittance remittance = remittance(senderId, receiverId, BigDecimal.valueOf(250), BigDecimal.valueOf(50).setScale(2), BigDecimal.valueOf(5), LocalDate.of(2025, 2, 1));
+
+        when(remittanceRepository.findByFilters(null, null, null)).thenReturn(List.of(remittance));
+
+        List<RemittanceResponse> response = remittanceService.list(null, null, null);
+
+        assertEquals(1, response.size());
+        assertEquals(senderId, response.getFirst().senderUserId());
+        assertEquals(receiverId, response.getFirst().receiverUserId());
+        verify(remittanceRepository).findByFilters(null, null, null);
+    }
+
+    @Test
+    void shouldNotListRemittancesWhenStartDateIsAfterEndDate() {
+        LocalDate startDate = LocalDate.of(2025, 2, 1);
+        LocalDate endDate = LocalDate.of(2025, 1, 31);
+
+        RemittanceException exception = assertThrows(RemittanceException.class, () -> remittanceService.list(startDate, endDate, null));
+
+        assertEquals("Start date must be before or equal to end date", exception.getMessage());
+        verify(remittanceRepository, never()).findByFilters(any(), any(), any());
+    }
+
+    private Remittance remittance(UUID senderId, UUID receiverId, BigDecimal brlAmount, BigDecimal usdAmount, BigDecimal exchangeRate, LocalDate quotationDate) {
+        Remittance remittance = new Remittance();
+        remittance.setSenderUserId(senderId);
+        remittance.setReceiverUserId(receiverId);
+        remittance.setBrlAmount(brlAmount);
+        remittance.setUsdAmount(usdAmount);
+        remittance.setExchangeRate(exchangeRate);
+        remittance.setQuotationDate(quotationDate);
+        remittance.setStatus(RemittanceStatus.COMPLETED);
+        remittance.setCreatedAt(java.time.LocalDateTime.now());
+        return remittance;
+    }
     private UserResponse user(UUID id, BigDecimal brlBalance, BigDecimal usdBalance) {
         return new UserResponse(id, "User", "user@email.com", "INDIVIDUAL", "12345678901", null, brlBalance, usdBalance);
     }

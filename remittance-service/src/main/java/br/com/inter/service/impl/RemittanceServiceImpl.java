@@ -18,7 +18,10 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 @Singleton
 public class RemittanceServiceImpl implements RemittanceService {
@@ -98,6 +101,20 @@ public class RemittanceServiceImpl implements RemittanceService {
         }
     }
 
+    @Override
+    public List<RemittanceResponse> list(LocalDate startDate, LocalDate endDate, UUID userId) {
+        LOGGER.info("Listing remittances. startDate={}, endDate={}, userId={}", startDate, endDate, userId);
+
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new RemittanceException("Start date must be before or equal to end date");
+        }
+
+        return remittanceRepository.findByFilters(startDate, endDate, userId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     private Remittance createPendingRemittance(CreateRemittanceRequest request, BigDecimal exchangeRate, BigDecimal usdAmount) {
         Remittance remittance = new Remittance();
         remittance.setSenderUserId(request.senderUserId());
@@ -146,5 +163,18 @@ public class RemittanceServiceImpl implements RemittanceService {
         remittance.setFailureReason(failureReason);
         remittanceRepository.update(remittance);
         LOGGER.info("Remittance status updated. remittanceId={}, status={}", remittance.getId(), status);
+    }
+
+    private RemittanceResponse toResponse(Remittance remittance) {
+        return new RemittanceResponse(
+                remittance.getSenderUserId(),
+                remittance.getReceiverUserId(),
+                remittance.getBrlAmount(),
+                remittance.getUsdAmount(),
+                remittance.getExchangeRate(),
+                remittance.getQuotationDate(),
+                null,
+                null
+        );
     }
 }
